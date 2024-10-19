@@ -206,3 +206,40 @@ class BranchVisualizer:
         )
         
         return fig
+def create_branch_visualization(commits_data: List[Dict[str, Any]], 
+                              branch_data: List[Dict[str, Any]]) -> go.Figure:
+    """
+    Create a branch visualization
+    """
+    visualizer = BranchVisualizer()
+    
+    # Calculate branch lanes
+    branch_lanes = {
+        branch['name']: idx 
+        for idx, branch in enumerate(branch_data)
+    }
+    
+    # Assign colors to branches
+    branch_to_color = visualizer.assign_branch_colors(branch_data)
+    
+    # Process commit data
+    commit_to_branch, commit_dates, commit_parents = visualizer.process_commit_data(
+        commits_data, 
+        branch_data
+    )
+    
+    # Prepare visualization data
+    visualization_data = visualizer.prepare_visualization_data(
+        commits_data,
+        commit_to_branch,
+        commit_dates,
+        commit_parents,
+        branch_to_color,
+        branch_lanes
+    )
+    
+    # Create and return the figure
+    return visualizer.create_plotly_figure(
+        *visualization_data,
+        branch_lanes
+    )
