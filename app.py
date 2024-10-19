@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+from utils.validation import validate_github_url
+from utils.visualization import create_branch_visualization
+from utils.github_data import GitHubDataFetcher
 
 def create_sidebar():
     """Create and configure the sidebar"""
@@ -62,6 +65,79 @@ def display_commit_history(commits_data):
     
     st.subheader("Author Contributions")
     st.bar_chart(authors)
+def display_branch_info(branch_data):
+    """Display branch information and statistics"""
+    st.subheader("Branch Information")
+    
+    if not branch_data:
+        st.warning("No branch data available")
+        return
+        
+    df_branches = pd.DataFrame(branch_data)
+    st.dataframe(df_branches, use_container_width=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Total Branches", len(branch_data))
+    with col2:
+        protected_branches = len([b for b in branch_data if b['protected']])
+        st.metric("Protected Branches", protected_branches)
+
+def main():
+    st.title("Git Repository Visualizer")
+    
+    # Add a brief description
+    st.markdown("""
+    Analyze and visualize GitHub repository branches, commits, and contributions.
+    Enter a repository URL in the sidebar to get started.
+    """)
+    
+    repo_url, github_token, commit_limit, analyze_button = create_sidebar()
+
+    if analyze_button:
+        try:
+            # Validate URL and get owner/repo
+            owner, repo_name = validate_github_url(repo_url)
+            
+            # Initialize GitHub client and fetch data
+            github_fetcher = GitHubDataFetcher(github_token)
+            
+            with st.spinner("Connecting to GitHub..."):
+                repo = github_fetcher.get_repository(owner, repo_name)
+            
+            with st.spinner("Fetching repository data..."):
+                commits_data = github_fetcher.get_commit_data(repo, commit_limit)
+                branch_data = github_fetcher.get_branch_data(repo)
+                
+                # Show repository info
+                st.success(f"Successfully connected to {owner}/{repo_name}")
+                
+                # Create tabs
+                tab1, tab2, tab3 = st.tabs([
+                    "Branch View", 
+                    "Commit History", 
+                    "Branch Information"
+                ])
+                
+                with tab1:
+                    st.subheader("Repository Branch Timeline")
+                    if commits_data and branch_data:
+                        fig = create_branch_visualization(commits_data, branch_data)
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.warning("No data available for visualization")
+                
+                with tab2:
+                    display_commit_history(commits_data)
+                
+                with tab3:
+                    display_branch_info(branch_data)
+
+        except ValueError as e:
+            st.error(str(e))
+        except Exception as e:
+            st.error(f"An unexpected error occurred: {str(e)}")
+            st.info("If the problem persists, please check your connection and try again later.")
 
 
 
